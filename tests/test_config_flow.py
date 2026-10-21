@@ -50,3 +50,4 @@ async def test_user_step_matches_service_uuid(hass: HomeAssistant) -> None:
     assert result["type"] is FlowResultType.FORM
     options = result["data_schema"].schema["address"].container
     assert set(options) == {ADDRESS, "AA:BB:CC:DD:EE:01"}
+    assert options[ADDRESS] == f"Vitamix ({ADDRESS})"

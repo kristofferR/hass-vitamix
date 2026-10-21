@@ -87,6 +87,19 @@ async def test_upload_program_service(hass: HomeAssistant, fake_client: type[Fak
     assert ("upload_program", ([ProgramStep(0.5, 60, 1.0)], 3)) in fake_client.calls
 
 
+async def test_entity_target_only_hits_that_blender(
+    hass: HomeAssistant, fake_client: type[FakeClient]
+) -> None:
+    await setup_entry(hass)
+    other = MockConfigEntry(domain=DOMAIN, data={"address": "AA:BB:CC:DD:EE:FF"})
+    other.add_to_hass(hass)
+    hass.data[DOMAIN][other.entry_id] = object()  # must never be called
+    await hass.services.async_call(
+        DOMAIN, "cancel", {"entity_id": "sensor.vitamix_2_0_state"}, blocking=True
+    )
+    assert fake_client.calls == [("cancel_program", None)]
+
+
 async def test_diagnostics_redact_address(
     hass: HomeAssistant, hass_client, fake_client: type[FakeClient]
 ) -> None:  # type: ignore[no-untyped-def]

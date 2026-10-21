@@ -10,8 +10,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.service import async_extract_config_entry_ids
+from homeassistant.helpers.target import TargetSelection
 from vitamix_ble import ProgramStep, VitamixClient
 
 from .const import DOMAIN
@@ -217,7 +218,7 @@ def _async_sync_services(hass: HomeAssistant) -> None:
             continue
 
         async def _handle(call: ServiceCall, name: str = name, build: Action = build) -> None:
-            targets = _resolve_coordinators(hass, call)
+            targets = await _resolve_coordinators(hass, call)
             if name in EXPERIMENTAL_SERVICES and (
                 blocked := [c.entry.title for c in targets if not c.experimental]
             ):
@@ -230,25 +231,14 @@ def _async_sync_services(hass: HomeAssistant) -> None:
         hass.services.async_register(DOMAIN, name, _handle, schema=schema)
 
 
-def _resolve_coordinators(hass: HomeAssistant, call: ServiceCall) -> list[VitamixCoordinator]:
+async def _resolve_coordinators(hass: HomeAssistant, call: ServiceCall) -> list[VitamixCoordinator]:
     """Find the coordinators targeted by ``call``; all of them without a target."""
     domain_data: dict[str, VitamixCoordinator] = hass.data.get(DOMAIN, {})
-    device_ids: list[str] | str = call.data.get("device_id", []) or []
-    if isinstance(device_ids, str):
-        device_ids = [device_ids]
-    if not device_ids:
+    if not TargetSelection(call.data).has_any_target:
         return list(domain_data.values())
-
-    device_reg = dr.async_get(hass)
-    coordinators: list[VitamixCoordinator] = []
-    for device_id in device_ids:
-        device = device_reg.async_get(device_id)
-        if device is None:
-            continue
-        for entry_id in device.config_entries:
-            coordinator = domain_data.get(entry_id)
-            if coordinator is not None and coordinator not in coordinators:
-                coordinators.append(coordinator)
+    # Resolves device, entity, area, floor and label targets alike.
+    entry_ids = await async_extract_config_entry_ids(call)
+    coordinators = [c for entry_id, c in domain_data.items() if entry_id in entry_ids]
     if not coordinators:
-        raise HomeAssistantError(f"no Vitamix device matched targets {device_ids}")
+        raise HomeAssistantError("no Vitamix device matched the service target")
     return coordinators
