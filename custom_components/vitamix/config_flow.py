@@ -77,7 +77,9 @@ class VitamixConfigFlow(ConfigFlow, domain=DOMAIN):
             address = format_mac(info.address).upper()
             if address in self._async_current_ids():
                 continue
-            self._discovered[address] = f"{info.name} ({address})"
+            # HA reports the address as the name when none was advertised.
+            name = info.name if info.name and info.name != info.address else None
+            self._discovered[address] = f"{name or DEFAULT_DEVICE_NAME} ({address})"
 
         if not self._discovered:
             return await self.async_step_manual()
