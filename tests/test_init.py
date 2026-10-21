@@ -63,6 +63,23 @@ async def test_unreachable_retry_explains_why(
     assert "proxy-kitchen" in (entry.reason or "")
 
 
+async def test_diagnostics_while_setup_retries(
+    hass: HomeAssistant, hass_client, fake_client: type[FakeClient]
+) -> None:  # type: ignore[no-untyped-def]
+    with patch(
+        "custom_components.vitamix.coordinator.bluetooth.async_ble_device_from_address",
+        return_value=None,
+    ):
+        entry = await setup_entry(hass)
+    with patch(
+        "custom_components.vitamix.diagnostics.bluetooth.async_address_reachability_diagnostics",
+        return_value=f"{ADDRESS} was last seen by proxy-kitchen",
+    ):
+        diagnostics = await get_diagnostics_for_config_entry(hass, hass_client, entry)
+    assert "proxy-kitchen" in diagnostics["reachability"]
+    assert ADDRESS not in str(diagnostics)
+
+
 async def test_experimental_services_need_the_option(
     hass: HomeAssistant, fake_client: type[FakeClient]
 ) -> None:

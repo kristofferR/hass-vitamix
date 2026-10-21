@@ -7,10 +7,11 @@ import time
 from typing import Any
 
 from homeassistant.components import bluetooth
+from homeassistant.components.bluetooth import BluetoothReachabilityIntent
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
+from .const import CONF_ADDRESS, DOMAIN
 from .coordinator import VitamixCoordinator
 
 REDACTED = "**REDACTED**"
@@ -19,27 +20,39 @@ REDACTED = "**REDACTED**"
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
-    coordinator: VitamixCoordinator = hass.data[DOMAIN][entry.entry_id]
-    address = coordinator.address
+    address = entry.data[CONF_ADDRESS].upper()
+
+    def redact(text: str | None) -> str | None:
+        return text.replace(address, REDACTED) if text else text
+
     info = bluetooth.async_last_service_info(hass, address, connectable=True)
     advertisement = None
     if info is not None:
         advertisement = {
-            "name": info.name,
+            # HA reports the address as the name when none was advertised.
+            "name": redact(info.name),
             "rssi": info.rssi,
             "source": info.source,
             "age_s": round(time.monotonic() - info.time, 1),
             "service_uuids": info.service_uuids,
             "manufacturer_data": {k: v.hex() for k, v in info.manufacturer_data.items()},
         }
-    panel = coordinator.panel
-    state = coordinator.data
-    return {
-        "panel": dataclasses.asdict(panel) if panel else None,
-        "state": dataclasses.asdict(state) if state else None,
-        "last_success": coordinator.last_success.isoformat() if coordinator.last_success else None,
-        "last_error": (coordinator.last_error or "").replace(address, REDACTED) or None,
-        "experimental": coordinator.experimental,
+    reachability = bluetooth.async_address_reachability_diagnostics(
+        hass, address, BluetoothReachabilityIntent.CONNECTION
+    )
+    result: dict[str, Any] = {
         "advertisement": advertisement,
-        "reachability": coordinator.reachability().replace(address, REDACTED),
+        "reachability": redact(reachability),
     }
+    # While setup is retrying there is no coordinator yet.
+    coordinator: VitamixCoordinator | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if coordinator is not None:
+        panel, state, success = coordinator.panel, coordinator.data, coordinator.last_success
+        result |= {
+            "panel": dataclasses.asdict(panel) if panel else None,
+            "state": dataclasses.asdict(state) if state else None,
+            "last_success": success.isoformat() if success else None,
+            "last_error": redact(coordinator.last_error),
+            "experimental": coordinator.experimental,
+        }
+    return result
