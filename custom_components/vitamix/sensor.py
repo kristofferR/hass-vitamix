@@ -9,13 +9,12 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
-    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory, UnitOfPower, UnitOfTime
+from homeassistant.const import EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from vitamix_ble import VitamixState
+from vitamix_ble import BlenderState, VitamixState
 
 from .const import DOMAIN
 from .coordinator import VitamixCoordinator
@@ -28,6 +27,13 @@ class VitamixSensorDescription(SensorEntityDescription):
 
 
 SENSORS: tuple[VitamixSensorDescription, ...] = (
+    VitamixSensorDescription(
+        key="state",
+        translation_key="state",
+        device_class=SensorDeviceClass.ENUM,
+        options=[state.value for state in BlenderState],
+        value_fn=lambda s: s.state.value,
+    ),
     VitamixSensorDescription(
         key="container",
         translation_key="container",
@@ -44,7 +50,7 @@ SENSORS: tuple[VitamixSensorDescription, ...] = (
         translation_key="container_hardware_id",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
-        value_fn=lambda s: s.container_hardware_id,
+        value_fn=lambda s: s.container_id,
     ),
     VitamixSensorDescription(
         key="container_max_runtime",
@@ -55,35 +61,11 @@ SENSORS: tuple[VitamixSensorDescription, ...] = (
         value_fn=lambda s: s.container.max_runtime_s if s.container else None,
     ),
     VitamixSensorDescription(
-        key="recipe_slot",
-        translation_key="recipe_slot",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda s: s.recipe_slot,
-    ),
-    VitamixSensorDescription(
-        key="rated_power",
-        translation_key="rated_power",
-        device_class=SensorDeviceClass.POWER,
-        native_unit_of_measurement=UnitOfPower.WATT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda s: s.rated_power_w,
-    ),
-    VitamixSensorDescription(
-        key="max_rpm",
-        translation_key="max_rpm",
-        native_unit_of_measurement="rpm",
+        key="recipe_state",
+        translation_key="recipe_state",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
-        value_fn=lambda s: s.max_rpm,
-    ),
-    VitamixSensorDescription(
-        key="rated_rpm",
-        translation_key="rated_rpm",
-        native_unit_of_measurement="rpm",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-        value_fn=lambda s: s.rated_rpm,
+        value_fn=lambda s: s.recipe_state,
     ),
 )
 
@@ -94,9 +76,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: VitamixCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
-        VitamixSensor(coordinator, description) for description in SENSORS
-    )
+    async_add_entities(VitamixSensor(coordinator, description) for description in SENSORS)
 
 
 class VitamixSensor(VitamixEntity, SensorEntity):

@@ -28,29 +28,68 @@
   },
   "entity": {
     "binary_sensor": {
-      "motor_running": { "name": "Motor running" },
-      "armed": { "name": "Armed" },
-      "container_attached": { "name": "Container attached" }
+      "motor_running": {
+        "name": "Motor running"
+      },
+      "sleeping": {
+        "name": "Sleeping"
+      },
+      "container_attached": {
+        "name": "Container attached"
+      }
     },
     "sensor": {
-      "container": { "name": "Container" },
-      "container_name": { "name": "Container name" },
-      "container_hardware_id": { "name": "Container hardware id" },
-      "container_max_runtime": { "name": "Container max runtime" },
-      "recipe_slot": { "name": "Recipe slot" },
-      "rated_power": { "name": "Rated power" },
-      "max_rpm": { "name": "Max RPM" },
-      "rated_rpm": { "name": "Rated RPM" }
+      "state": {
+        "name": "State",
+        "state": {
+          "sleeping": "Sleeping (turn the dial to wake)",
+          "no_container": "No container",
+          "idle": "Idle",
+          "press_pulse": "Ready (press pulse)",
+          "ready": "Ready (press start)",
+          "running": "Running",
+          "unknown": "Unknown"
+        }
+      },
+      "container": {
+        "name": "Container"
+      },
+      "container_name": {
+        "name": "Container name"
+      },
+      "container_hardware_id": {
+        "name": "Container id"
+      },
+      "container_max_runtime": {
+        "name": "Container max runtime"
+      },
+      "recipe_state": {
+        "name": "Recipe state"
+      }
     }
   },
   "services": {
     "cancel": {
       "name": "Cancel program",
-      "description": "Send the official cancel-program packet."
+      "description": "Unload the current program, like the official app. Refused while the motor runs."
+    },
+    "upload_program": {
+      "name": "Upload program",
+      "description": "Upload a custom program of up to four steps; then press start on the blender.",
+      "fields": {
+        "steps": {
+          "name": "Steps",
+          "description": "List of {power, seconds, ramp} steps. Power is 0-100 %."
+        },
+        "container_id": {
+          "name": "Container id",
+          "description": "Override the detected container (required on old B-panels)."
+        }
+      }
     },
     "load_program": {
       "name": "Load saved program",
-      "description": "Arm one of the blender's saved program slots.",
+      "description": "Experimental: write a slot number to the legacy recipe register.",
       "fields": {
         "slot": {
           "name": "Program slot",
@@ -60,7 +99,7 @@
     },
     "set_motor_speed": {
       "name": "Set motor speed",
-      "description": "Run the motor at a fixed Variable-speed (0..10).",
+      "description": "Experimental: Run the motor at a fixed Variable-speed (0..10).",
       "fields": {
         "speed": {
           "name": "Speed",
@@ -74,19 +113,24 @@
     },
     "start_motor": {
       "name": "Start motor",
-      "description": "Start the motor; defaults to Variable-5.",
+      "description": "Experimental: Start the motor; defaults to Variable-5.",
       "fields": {
-        "speed": { "name": "Speed", "description": "1..10." },
-        "duration": { "name": "Duration (seconds)" }
+        "speed": {
+          "name": "Speed",
+          "description": "1..10."
+        },
+        "duration": {
+          "name": "Duration (seconds)"
+        }
       }
     },
     "stop_motor": {
       "name": "Stop motor",
-      "description": "Stop the motor (same wire packet as cancel)."
+      "description": "Experimental: write 0 to the legacy recipe register. Not a safety stop."
     },
     "play_melody": {
       "name": "Play melody",
-      "description": "Sequence (speed, duration) notes for blender music.",
+      "description": "Experimental: Sequence (speed, duration) notes for blender music.",
       "fields": {
         "notes": {
           "name": "Notes",
@@ -95,6 +139,16 @@
         "gap": {
           "name": "Gap between notes",
           "description": "Optional silence between notes, in seconds."
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "The official Vitamix app has no remote start, speed control or stop. These legacy services write registers the app never uses this way and are unverified. Do not rely on Stop motor as a safety stop.",
+        "data": {
+          "experimental_motor_control": "Enable experimental motor-control services"
         }
       }
     }

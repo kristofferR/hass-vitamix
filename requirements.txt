@@ -1,0 +1,12 @@
+# Test dependencies (CI runs pytest when tests/ exists).
+pytest-homeassistant-custom-component==0.13.373
+# Requirements of HA's bluetooth integration, which phcc does not install.
+bleak-retry-connector==4.7.1
+bluetooth-adapters==2.4.0
+bluetooth-auto-recovery==1.6.4
+bluetooth-data-tools==1.29.24
+dbus-fast==5.0.22
+habluetooth==7.1.2
+aiousbwatcher==1.1.2
+serialx==1.11.0
+vitamix-ble @ git+https://github.com/kristofferR/vitamix-ble@1f313082fdde9a2b428417bb4b2e85110c869d15

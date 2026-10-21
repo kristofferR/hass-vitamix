@@ -11,7 +11,6 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from vitamix_ble import VitamixState
@@ -23,7 +22,7 @@ from .entity import VitamixEntity
 
 @dataclass(frozen=True, kw_only=True)
 class VitamixBinarySensorDescription(BinarySensorEntityDescription):
-    value_fn: Callable[[VitamixState], bool]
+    value_fn: Callable[[VitamixState], bool | None]
 
 
 BINARY_SENSORS: tuple[VitamixBinarySensorDescription, ...] = (
@@ -34,16 +33,15 @@ BINARY_SENSORS: tuple[VitamixBinarySensorDescription, ...] = (
         value_fn=lambda s: s.motor_running,
     ),
     VitamixBinarySensorDescription(
-        key="armed",
-        translation_key="armed",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda s: s.armed,
+        key="sleeping",
+        translation_key="sleeping",
+        value_fn=lambda s: s.sleeping,
     ),
     VitamixBinarySensorDescription(
         key="container_attached",
         translation_key="container_attached",
         device_class=BinarySensorDeviceClass.PRESENCE,
-        value_fn=lambda s: s.container_hardware_id != 0,
+        value_fn=lambda s: s.container_present,
     ),
 )
 

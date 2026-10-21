@@ -1,19 +1,56 @@
 cancel:
   name: Cancel program
   description: >-
-    Send the official "cancel current program" packet to a Vitamix
-    blender. Idempotent if the device is already idle.
+    Unload the current program, like the official Vitamix app. Refused
+    while the motor runs, and on C-panels with Thread firmware 1.4.
   target:
     device:
       integration: vitamix
 
-load_program:
-  name: Load saved program
+upload_program:
+  name: Upload program
   description: >-
-    Arm one of the blender's built-in saved program slots
-    (e.g. Smoothie / Frozen Dessert / Spreads). Whether the motor also
-    spins immediately depends on whether the dial is in an armed
-    position; on an idle device the slot is just primed.
+    Upload a custom program of up to four steps, encoded like the official
+    app and checked against the attached container. The blender then waits
+    for you to press start (B-panels: turn the dial to 1 first).
+  target:
+    device:
+      integration: vitamix
+  fields:
+    steps:
+      name: Steps
+      description: >-
+        List of steps. power is 0-100 % (50 % is about 4500 RPM), seconds
+        is whole seconds, ramp is the optional ramp-up time in seconds.
+        Steps over 240 s count as several of the four segments.
+      required: true
+      example: |
+        - power: 30
+          seconds: 10
+        - power: 80
+          seconds: 40
+          ramp: 2
+      selector:
+        object:
+    container_id:
+      name: Container id
+      description: >-
+        Override the detected container (1 = 64 oz, 2 = personal cup,
+        3 = 48 oz wet, 4 = 48 oz dry). Required on old B-panels.
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 5
+          step: 1
+          mode: box
+
+load_program:
+  name: Load saved program (experimental)
+  description: >-
+    Experimental. Writes a slot number to the legacy recipe register. The
+    official app treats that register as a recipe state, not a program
+    slot. Enable experimental motor control in the integration options.
   target:
     device:
       integration: vitamix
@@ -31,12 +68,10 @@ load_program:
           mode: box
 
 set_motor_speed:
-  name: Set motor speed
+  name: Set motor speed (experimental)
   description: >-
-    Run the motor at a fixed Variable-speed (0..10). Stages a 1-step
-    custom program in the panel scratch buffer and fires it. Calling
-    again while the motor is running re-stages the buffer for live
-    speed changes.
+    Experimental and unverified: the official app has no remote speed
+    control. Stages a legacy 1-step program at dial speed 0..10.
   target:
     device:
       integration: vitamix
@@ -44,8 +79,8 @@ set_motor_speed:
     speed:
       name: Speed
       description: >-
-        0..10 on the variable-speed dial. 0 stops the motor (same as
-        the cancel service); 10 is full speed.
+        0..10 on the variable-speed dial. 0 calls stop_motor; 10 is
+        full speed.
       required: true
       example: 5
       selector:
@@ -70,11 +105,10 @@ set_motor_speed:
           mode: box
 
 start_motor:
-  name: Start motor
+  name: Start motor (experimental)
   description: >-
-    Convenience wrapper around set_motor_speed. Defaults to a gentle
-    Variable-5 so a bare invocation can't launch ingredients out of
-    an open container.
+    Experimental and unverified: the official app has no remote start.
+    Wrapper around set_motor_speed, defaulting to dial speed 5.
   target:
     device:
       integration: vitamix
@@ -104,17 +138,18 @@ start_motor:
           mode: box
 
 stop_motor:
-  name: Stop motor
+  name: Stop motor (experimental)
   description: >-
-    Stop the motor. Equivalent to cancel; kept as a separate service
-    so dashboards/automations can express intent unambiguously.
+    Experimental: writes 0 to the legacy recipe register even while the
+    motor runs, which the official app never does. Not a safety stop.
   target:
     device:
       integration: vitamix
 
 play_melody:
-  name: Play melody
+  name: Play melody (experimental)
   description: >-
+    Experimental and unverified.
     Play a sequence of (speed, duration) "notes" by re-staging a
     1-step custom program for each note and sleeping for its dwell
     time. Holds a single BLE connection open for the whole tune.

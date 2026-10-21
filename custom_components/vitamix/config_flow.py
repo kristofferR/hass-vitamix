@@ -16,17 +16,34 @@ from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
     async_discovered_service_info,
 )
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.const import CONF_ADDRESS
+from homeassistant.core import callback
 from homeassistant.helpers.device_registry import format_mac
 
-from .const import ADV_LOCAL_NAME, DEFAULT_DEVICE_NAME, DOMAIN, SERVICE_UUID
+from .const import (
+    ADV_LOCAL_NAME,
+    CONF_EXPERIMENTAL,
+    DEFAULT_DEVICE_NAME,
+    DOMAIN,
+    SERVICE_UUID,
+)
 
 
 class VitamixConfigFlow(ConfigFlow, domain=DOMAIN):
     """Config flow for the Vitamix integration."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        return VitamixOptionsFlow()
 
     def __init__(self) -> None:
         self._discovered_address: str | None = None
@@ -63,15 +80,12 @@ class VitamixConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Pick from currently-discovered Vitamix devices, or fall through to manual entry."""
         self._discovered = {}
         for info in async_discovered_service_info(self.hass):
             if not (
-                (info.name or "").startswith(ADV_LOCAL_NAME)
-                or SERVICE_UUID in info.service_uuids
+                (info.name or "").startswith(ADV_LOCAL_NAME) or SERVICE_UUID in info.service_uuids
             ):
                 continue
             address = format_mac(info.address).upper()
@@ -93,14 +107,10 @@ class VitamixConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
-                {vol.Required(CONF_ADDRESS): vol.In(self._discovered)}
-            ),
+            data_schema=vol.Schema({vol.Required(CONF_ADDRESS): vol.In(self._discovered)}),
         )
 
-    async def async_step_manual(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Fall-back manual entry by MAC address."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -128,10 +138,21 @@ def _display_name(info: BluetoothServiceInfoBleak) -> str:
     return DEFAULT_DEVICE_NAME
 
 
+class VitamixOptionsFlow(OptionsFlow):
+    """Opt in to the experimental motor-control services."""
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+        current = self.config_entry.options.get(CONF_EXPERIMENTAL, False)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({vol.Required(CONF_EXPERIMENTAL, default=current): bool}),
+        )
+
+
 def _looks_like_mac(value: str) -> bool:
     parts = value.split(":")
     if len(parts) != 6:
         return False
-    return all(
-        len(p) == 2 and all(c in "0123456789ABCDEFabcdef" for c in p) for p in parts
-    )
+    return all(len(p) == 2 and all(c in "0123456789ABCDEFabcdef" for c in p) for p in parts)
