@@ -41,7 +41,7 @@ class VitamixConfigFlow(ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(address, raise_on_progress=False)
         self._abort_if_unique_id_configured()
         self._discovered_address = address
-        self._discovered_name = discovery_info.name or DEFAULT_DEVICE_NAME
+        self._discovered_name = _display_name(discovery_info)
         self.context["title_placeholders"] = {"name": self._discovered_name}
         return await self.async_step_bluetooth_confirm()
 
@@ -77,9 +77,7 @@ class VitamixConfigFlow(ConfigFlow, domain=DOMAIN):
             address = format_mac(info.address).upper()
             if address in self._async_current_ids():
                 continue
-            # HA reports the address as the name when none was advertised.
-            name = info.name if info.name and info.name != info.address else None
-            self._discovered[address] = f"{name or DEFAULT_DEVICE_NAME} ({address})"
+            self._discovered[address] = f"{_display_name(info)} ({address})"
 
         if not self._discovered:
             return await self.async_step_manual()
@@ -121,6 +119,13 @@ class VitamixConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required(CONF_ADDRESS): str}),
             errors=errors,
         )
+
+
+def _display_name(info: BluetoothServiceInfoBleak) -> str:
+    """Advertised name, or the default; HA reports the address when none was sent."""
+    if info.name and info.name != info.address:
+        return info.name
+    return DEFAULT_DEVICE_NAME
 
 
 def _looks_like_mac(value: str) -> bool:
