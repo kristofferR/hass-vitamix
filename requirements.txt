@@ -9,4 +9,4 @@ dbus-fast==5.0.22
 habluetooth==7.1.2
 aiousbwatcher==1.1.2
 serialx==1.11.0
-vitamix-ble @ git+https://github.com/kristofferR/vitamix-ble@1f313082fdde9a2b428417bb4b2e85110c869d15
+vitamix-ble @ git+https://github.com/kristofferR/vitamix-ble@79763af29d9744ee74b5f5ee4941dad98dbeecfa

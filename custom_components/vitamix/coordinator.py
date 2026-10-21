@@ -87,7 +87,6 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
             client = VitamixClient(
                 ble_device,
                 device_info=self.panel,
-                ble_device_callback=lambda: self._ble_device() or ble_device,
                 experimental=self.experimental,
             )
             try:
