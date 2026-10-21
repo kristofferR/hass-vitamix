@@ -1,7 +1,7 @@
 """Config flow for the Vitamix integration.
 
 The blender is discovered automatically via the bluetooth platform
-based on its advertised local name (`Vitamix_2.0`). Manual entry by
+by its local name (`Vitamix_2.0`) or service UUID. Manual entry by
 MAC address is also offered for setups where the blender is only
 reachable via a remote scanner that hasn't surfaced an advertisement
 to Home Assistant yet.
@@ -20,7 +20,7 @@ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.helpers.device_registry import format_mac
 
-from .const import ADV_LOCAL_NAME, DEFAULT_DEVICE_NAME, DOMAIN
+from .const import ADV_LOCAL_NAME, DEFAULT_DEVICE_NAME, DOMAIN, SERVICE_UUID
 
 
 class VitamixConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -69,9 +69,10 @@ class VitamixConfigFlow(ConfigFlow, domain=DOMAIN):
         """Pick from currently-discovered Vitamix devices, or fall through to manual entry."""
         self._discovered = {}
         for info in async_discovered_service_info(self.hass):
-            if not info.name:
-                continue
-            if not info.name.startswith(ADV_LOCAL_NAME):
+            if not (
+                (info.name or "").startswith(ADV_LOCAL_NAME)
+                or SERVICE_UUID in info.service_uuids
+            ):
                 continue
             address = format_mac(info.address).upper()
             if address in self._async_current_ids():

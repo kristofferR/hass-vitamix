@@ -10,7 +10,6 @@ closest to wake the radio.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import timedelta
 
@@ -55,7 +54,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 state = await vmx.read_state()
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix poll failed: {err}") from err
 
         # Speed up polling once the motor is running so live attributes
@@ -92,7 +91,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.cancel_program()
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix cancel failed: {err}") from err
         await self.async_request_refresh()
 
@@ -108,7 +107,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.load_program(slot)
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix load_program failed: {err}") from err
         await self.async_request_refresh()
 
@@ -126,7 +125,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.set_motor_speed(speed, duration_seconds=duration_seconds)
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix set_motor_speed failed: {err}") from err
         await self.async_request_refresh()
 
@@ -138,7 +137,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.start_motor(speed, duration_seconds=duration_seconds)
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix start_motor failed: {err}") from err
         await self.async_request_refresh()
 
@@ -148,7 +147,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.stop_motor()
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix stop_motor failed: {err}") from err
         await self.async_request_refresh()
 
@@ -167,6 +166,6 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.play_melody(notes, gap_seconds=gap_seconds)
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix play_melody failed: {err}") from err
         await self.async_request_refresh()
