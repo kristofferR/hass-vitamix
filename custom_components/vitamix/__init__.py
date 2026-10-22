@@ -7,12 +7,19 @@ from collections.abc import Awaitable, Callable
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_ADDRESS, Platform
+from homeassistant.const import (
+    ATTR_AREA_ID,
+    ATTR_DEVICE_ID,
+    ATTR_ENTITY_ID,
+    ATTR_FLOOR_ID,
+    ATTR_LABEL_ID,
+    CONF_ADDRESS,
+    Platform,
+)
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.service import async_extract_config_entry_ids
-from homeassistant.helpers.target import TargetSelection
 from vitamix_ble import ProgramStep, VitamixClient
 
 from .const import DOMAIN
@@ -31,6 +38,10 @@ REMOVED_ENTITIES: tuple[tuple[Platform, str], ...] = (
     (Platform.SENSOR, "max_rpm"),
     (Platform.SENSOR, "rated_rpm"),
 )
+
+# Only a call with none of these reaches every blender; an explicitly empty
+# target (e.g. a template that matched nothing) reaches none.
+TARGET_KEYS = {ATTR_AREA_ID, ATTR_DEVICE_ID, ATTR_ENTITY_ID, ATTR_FLOOR_ID, ATTR_LABEL_ID}
 
 SERVICE_CANCEL = "cancel"
 SERVICE_UPLOAD_PROGRAM = "upload_program"
@@ -234,7 +245,7 @@ def _async_sync_services(hass: HomeAssistant) -> None:
 async def _resolve_coordinators(hass: HomeAssistant, call: ServiceCall) -> list[VitamixCoordinator]:
     """Find the coordinators targeted by ``call``; all of them without a target."""
     domain_data: dict[str, VitamixCoordinator] = hass.data.get(DOMAIN, {})
-    if not TargetSelection(call.data).has_any_target:
+    if not TARGET_KEYS & call.data.keys():
         return list(domain_data.values())
     # Resolves device, entity, area, floor and label targets alike.
     entry_ids = await async_extract_config_entry_ids(call)

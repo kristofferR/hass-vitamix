@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.components.diagnostics import (
@@ -115,6 +117,15 @@ async def test_entity_target_only_hits_that_blender(
         DOMAIN, "cancel", {"entity_id": "sensor.vitamix_2_0_state"}, blocking=True
     )
     assert fake_client.calls == [("cancel_program", None)]
+
+
+async def test_empty_target_hits_no_blender(
+    hass: HomeAssistant, fake_client: type[FakeClient]
+) -> None:
+    await setup_entry(hass)
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(DOMAIN, "cancel", {"entity_id": []}, blocking=True)
+    assert fake_client.calls == []
 
 
 async def test_diagnostics_redact_address(
