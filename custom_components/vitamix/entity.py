@@ -20,19 +20,11 @@ class VitamixEntity(CoordinatorEntity[VitamixCoordinator]):
 
     @property
     def device_info(self) -> DeviceInfo:
-        state = self.coordinator.data
-        # Model can only be derived once we've read the firmware specs.
-        model = None
-        if state is not None:
-            # We can't read a model name directly, but rated_power_w +
-            # max_rpm uniquely identify the line (e.g. Ascent A3500 is
-            # 1200 W / 12000 RPM). Surface them as an informational model
-            # string so users can tell devices apart.
-            model = f"{state.rated_power_w} W, max {state.max_rpm} RPM"
+        # No model here: entities register before the first poll, and an
+        # explicit model=None would clear it. The coordinator sets it instead.
         return DeviceInfo(
             identifiers={(DOMAIN, self._address)},
             connections={(CONNECTION_BLUETOOTH, self._address)},
             manufacturer=MANUFACTURER,
             name=self.coordinator.entry.title,
-            model=model,
         )

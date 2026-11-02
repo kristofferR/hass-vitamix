@@ -18,6 +18,7 @@ from bleak.exc import BleakError
 from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from vitamix_ble import VitamixClient, VitamixState
 from vitamix_ble.client import VitamixError
@@ -67,7 +68,18 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         if self.update_interval != new_td:
             self.update_interval = new_td
 
+        self._async_update_device_model(state)
         return state
+
+    def _async_update_device_model(self, state: VitamixState) -> None:
+        """Record the model once polled; entities register before the first poll."""
+        # We can't read a model name directly, but rated power + max RPM
+        # identify the line (e.g. Ascent A3500 is 1200 W / 12000 RPM).
+        model = f"{state.rated_power_w} W, max {state.max_rpm} RPM"
+        registry = dr.async_get(self.hass)
+        for device in dr.async_entries_for_config_entry(registry, self.entry.entry_id):
+            if device.model != model:
+                registry.async_update_device(device.id, model=model)
 
     async def _connected_client(self) -> VitamixClient:
         """Resolve a BLEDevice and return a *connected* :class:`VitamixClient`.
