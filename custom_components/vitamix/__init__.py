@@ -96,12 +96,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Vitamix from a config entry."""
     address: str = entry.data[CONF_ADDRESS]
     coordinator = VitamixCoordinator(hass, entry, address)
-    await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _async_register_services(hass)
+
+    # Poll in the background: an idle blender advertises rarely, so a BLE
+    # connect (often through a proxy) can take over a minute and would otherwise
+    # hold up HA startup. Entities stay unknown until the first poll, then go
+    # unavailable on failure and recover on the regular interval.
+    entry.async_create_background_task(
+        hass, coordinator.async_refresh(), f"{DOMAIN} first refresh {address}"
+    )
     return True
 
 
@@ -129,7 +136,6 @@ def _async_register_services(hass: HomeAssistant) -> None:
         if isinstance(device_ids, str):
             device_ids = [device_ids]
 
-        coordinators: list[VitamixCoordinator] = []
         device_reg = dr.async_get(hass)
         domain_data: dict[str, VitamixCoordinator] = hass.data.get(DOMAIN, {})
 
@@ -137,14 +143,18 @@ def _async_register_services(hass: HomeAssistant) -> None:
             # No target — apply to every configured Vitamix.
             return list(domain_data.values())
 
+        # Match on our device identifier rather than the device's config
+        # entries: DeviceEntry.config_entries is deprecated since HA 2026.11,
+        # and its replacement (config_entry_id) doesn't exist on older cores.
+        identifiers: set[tuple[str, str]] = set()
         for device_id in device_ids:
-            device = device_reg.async_get(device_id)
-            if device is None:
-                continue
-            for entry_id in device.config_entries:
-                coordinator = domain_data.get(entry_id)
-                if coordinator is not None and coordinator not in coordinators:
-                    coordinators.append(coordinator)
+            if (device := device_reg.async_get(device_id)) is not None:
+                identifiers |= device.identifiers
+        coordinators = [
+            coordinator
+            for coordinator in domain_data.values()
+            if (DOMAIN, coordinator.address) in identifiers
+        ]
 
         if not coordinators:
             raise HomeAssistantError(f"no Vitamix device matched targets {device_ids}")

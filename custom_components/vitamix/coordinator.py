@@ -10,7 +10,6 @@ closest to wake the radio.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import timedelta
 
@@ -18,6 +17,7 @@ from bleak.exc import BleakError
 from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from vitamix_ble import VitamixClient, VitamixState
 from vitamix_ble.client import VitamixError
@@ -55,7 +55,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 state = await vmx.read_state()
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix poll failed: {err}") from err
 
         # Speed up polling once the motor is running so live attributes
@@ -67,7 +67,18 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         if self.update_interval != new_td:
             self.update_interval = new_td
 
+        self._async_update_device_model(state)
         return state
+
+    def _async_update_device_model(self, state: VitamixState) -> None:
+        """Record the model once polled; entities register before the first poll."""
+        # We can't read a model name directly, but rated power + max RPM
+        # identify the line (e.g. Ascent A3500 is 1200 W / 12000 RPM).
+        model = f"{state.rated_power_w} W, max {state.max_rpm} RPM"
+        registry = dr.async_get(self.hass)
+        for device in dr.async_entries_for_config_entry(registry, self.entry.entry_id):
+            if device.model != model:
+                registry.async_update_device(device.id, model=model)
 
     async def _connected_client(self) -> VitamixClient:
         """Resolve a BLEDevice and return a *connected* :class:`VitamixClient`.
@@ -92,7 +103,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.cancel_program()
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix cancel failed: {err}") from err
         await self.async_request_refresh()
 
@@ -108,7 +119,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.load_program(slot)
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix load_program failed: {err}") from err
         await self.async_request_refresh()
 
@@ -126,7 +137,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.set_motor_speed(speed, duration_seconds=duration_seconds)
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix set_motor_speed failed: {err}") from err
         await self.async_request_refresh()
 
@@ -138,7 +149,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.start_motor(speed, duration_seconds=duration_seconds)
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix start_motor failed: {err}") from err
         await self.async_request_refresh()
 
@@ -148,7 +159,7 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.stop_motor()
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix stop_motor failed: {err}") from err
         await self.async_request_refresh()
 
@@ -167,6 +178,6 @@ class VitamixCoordinator(DataUpdateCoordinator[VitamixState]):
         try:
             async with client as vmx:
                 await vmx.play_melody(notes, gap_seconds=gap_seconds)
-        except (VitamixError, BleakError, asyncio.TimeoutError) as err:
+        except (TimeoutError, VitamixError, BleakError) as err:
             raise UpdateFailed(f"vitamix play_melody failed: {err}") from err
         await self.async_request_refresh()
