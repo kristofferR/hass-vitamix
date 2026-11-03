@@ -2,9 +2,35 @@ name: Auto-release
 on:
   push:
     branches: [main]
+  workflow_dispatch: # republish a release whose zip never landed
 jobs:
   release:
     uses: teemow/github-workflows/.github/workflows/auto-release.yml@main
     permissions:
       contents: write
       pull-requests: read
+
+  # HACS installs this zip (hacs.json zip_release), so the manifest version
+  # Home Assistant shows always matches the release tag.
+  publish:
+    needs: release
+    if: needs.release.outputs.tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.release.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      - name: Stamp manifest version and build zip
+        run: |
+          set -euo pipefail
+          manifest=custom_components/vitamix/manifest.json
+          jq --arg v "${TAG#v}" '.version = $v' "$manifest" > manifest.tmp
+          mv manifest.tmp "$manifest"
+          (cd custom_components/vitamix && zip -r "$GITHUB_WORKSPACE/vitamix.zip" . -x '__pycache__/*')
+      - name: Upload to release
+        run: gh release upload "$TAG" vitamix.zip --clobber
